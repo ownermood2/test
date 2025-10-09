@@ -24,3 +24,4 @@ pytest-mock
 python-dotenv
 python-telegram-bot
 waitress
+python-docx
