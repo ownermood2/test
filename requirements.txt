@@ -11,3 +11,16 @@ pytest>=7.0.0
 pytest-asyncio>=0.21.0
 pytest-cov>=4.0.0
 pytest-mock>=3.10.0
+APScheduler
+Flask
+gunicorn
+httpx
+psutil
+psycopg2-binary
+pytest
+pytest-asyncio
+pytest-cov
+pytest-mock
+python-dotenv
+python-telegram-bot
+waitress
