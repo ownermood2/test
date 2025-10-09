@@ -3,10 +3,11 @@
 This project is a production-ready Telegram Quiz Bot application designed for interactive quiz functionality in Telegram chats and groups. It features a Flask web interface for administration, supports both webhook and polling deployment modes, and manages quiz questions, tracks user scores, and provides analytics. The primary goal is to deliver a robust, scalable, and user-friendly quiz experience with advanced administrative capabilities and seamless deployment across various platforms.
 
 ## Recent Changes (Oct 9, 2025)
-- **📚 IMPORTED 200 NEW MCQs WITH CORRECT ANSWERS**: Successfully imported 200 unique questions from Word document with verified correct answers. All questions extracted from embedded answer key. Bot running perfectly with 200 questions loaded across 7 active groups.
+- **📚 IMPORTED 244 TOTAL MCQs FROM TWO DOCUMENTS**: Successfully imported questions from two Word documents. First document: 200 questions with correct answers (100% success). Second document: 44 questions extracted from 243 total (18% success rate due to poor formatting). Bot running with 244 questions across 7 active groups.
+- **⚠️ Second Document Import Challenges**: Second Word document had severe formatting issues (missing question numbers, inconsistent option formatting, questions running together). Automated parser could only extract 44 well-formed questions out of 243 total. Remaining 199 questions require manual cleanup or re-formatting of source document.
 - **🔧 Fixed JSON formatting issue**: Converted MCQ options from Python string format to proper JSON (double quotes). Options now stored in correct JSON array format in PostgreSQL database.
-- **🛡️ Duplicate prevention restored**: Re-added unique constraint on questions table to prevent duplicate entries during future imports.
-- **📊 Current Stats**: Bot running in polling mode on Replit with 200 verified questions, 7 active groups, automated quiz delivery every 30 minutes.
+- **🛡️ Duplicate prevention maintained**: Unique constraint on questions table prevents duplicate entries during imports.
+- **📊 Current Stats**: Bot running in polling mode on Replit with 244 questions (200 from first doc + 44 from second doc), 7 active groups, automated quiz delivery every 30 minutes.
 
 ## Previous Changes (Oct 8, 2025)
 - **✅ COMPREHENSIVE OPTIMIZATION AUDIT COMPLETED**: Full codebase scan, optimization, and bug-fix completed by professional AI developer. All LSP errors fixed, no syntax issues, zero runtime errors. Bot running at peak performance with 429 users across 4 active groups.
