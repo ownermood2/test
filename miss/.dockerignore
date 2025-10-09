@@ -1,0 +1,100 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation (exclude from image)
+*.md
+docs/
+
+# Database (SQLite not needed in Docker with PostgreSQL)
+# Exclude database files but KEEP questions.json for deployment
+data/*.db
+data/*.db-shm
+data/*.db-wal
+data/*.db-journal
+data/bot.lock
+data/scores.json
+data/active_chats.json
+data/user_stats.json
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+
+# Logs
+*.log
+logs/
+bot.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Replit specific
+.replit
+replit.nix
+replit.md
+.config/
+.cache/
+.upm/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
