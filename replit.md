@@ -3,11 +3,11 @@
 This project is a production-ready Telegram Quiz Bot application designed for interactive quiz functionality in Telegram chats and groups. It features a Flask web interface for administration, supports both webhook and polling deployment modes, and manages quiz questions, tracks user scores, and provides analytics. The primary goal is to deliver a robust, scalable, and user-friendly quiz experience with advanced administrative capabilities and seamless deployment across various platforms.
 
 ## Recent Changes (Oct 9, 2025)
-- **📚 IMPORTED 735 TOTAL MCQs**: Successfully imported questions from three documents. First: 200 MCQs (100% success). Second: 44 MCQs from 243 total (18% due to poor formatting). Third: 489 Constitution MCQs from 589 answers found (83% success). Bot running with 735 questions across 7 active groups.
-- **🏛️ Constitution MCQ Import Success**: Third document (600 Constitution MCQs) had unlabeled options format (plain text lines instead of a), b), c), d)). Created custom parser to handle this format. Successfully extracted 489 questions from 589 answer markers found. Only 2 duplicates skipped.
-- **🔧 Fixed JSON formatting issue**: Converted MCQ options from Python string format to proper JSON (double quotes). Options now stored in correct JSON array format in PostgreSQL database.
-- **🛡️ Duplicate prevention maintained**: Unique constraint on questions table prevents duplicate entries during imports.
-- **📊 Current Stats**: Bot running in polling mode on Replit with 735 questions (200 + 44 + 489 + 2 duplicates skipped), 7 active groups, automated quiz delivery every 30 minutes.
+- **📚 IMPORTED & CLEANED 560 VALID MCQs**: Successfully imported 735 questions from three documents, then removed 175 problematic questions that violated Telegram's 100-character poll option limit. Final count: 560 valid questions across 7 active groups.
+- **🏛️ Constitution MCQ Import**: Third document (600 Constitution MCQs) had unlabeled options format (plain text lines instead of a), b), c), d)). Created custom parser to handle this format. Successfully extracted 489 questions from 589 answer markers found.
+- **🔧 Fixed Telegram Poll Limit Bug**: Discovered and removed 175 questions (24%) with options exceeding Telegram's 100-character limit. This was causing "Poll options length must not exceed 100" errors during automated quiz delivery. All remaining 560 questions now comply with Telegram's requirements.
+- **🛡️ Duplicate prevention maintained**: Unique constraint on questions table prevents duplicate entries during imports. 2 duplicates skipped during Constitution import.
+- **📊 Current Stats**: Bot running in polling mode on Replit with 560 valid questions, 7 active groups, automated quiz delivery every 30 minutes, zero errors.
 
 ## Previous Changes (Oct 8, 2025)
 - **✅ COMPREHENSIVE OPTIMIZATION AUDIT COMPLETED**: Full codebase scan, optimization, and bug-fix completed by professional AI developer. All LSP errors fixed, no syntax issues, zero runtime errors. Bot running at peak performance with 429 users across 4 active groups.
