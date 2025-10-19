@@ -17,8 +17,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-logging.getLogger('httpx').setLevel(logging.WARNING)
-logging.getLogger('telegram').setLevel(logging.INFO)
+# PERFORMANCE OPTIMIZATION: Reduce logging overhead
+logging.getLogger('httpx').setLevel(logging.ERROR)
+logging.getLogger('telegram').setLevel(logging.WARNING)
+logging.getLogger('telegram.ext').setLevel(logging.WARNING)
 
 def send_restart_confirmation_sync(config: Config):
     """Send restart confirmation to owner if restart flag exists"""
@@ -57,33 +59,22 @@ def run_polling_mode(config: Config):
     
     logger.info("🚀 Starting in POLLING mode")
     
-    # CRITICAL: Delete any existing webhook to prevent conflicts (async operation)
+    # PERFORMANCE OPTIMIZATION: Simplified webhook cleanup
     async def cleanup_webhook():
-        max_webhook_retry = 3
-        for attempt in range(max_webhook_retry):
-            try:
-                temp_bot = Bot(token=config.telegram_token)
-                webhook_info = await temp_bot.get_webhook_info()
-                
-                if webhook_info.url:
-                    logger.info(f"⚠️ Found existing webhook: {webhook_info.url}")
-                    await temp_bot.delete_webhook(drop_pending_updates=True)
-                    logger.info("✅ Deleted webhook - polling mode ready")
-                    await asyncio.sleep(2)
-                else:
-                    logger.info("✅ No webhook found - polling mode ready")
-                return True
-            except (NetworkError, TimedOut) as e:
-                if attempt < max_webhook_retry - 1:
-                    logger.warning(f"Network error deleting webhook (attempt {attempt + 1}/{max_webhook_retry}): {e}")
-                    await asyncio.sleep(3)
-                else:
-                    logger.critical(f"❌ Failed to delete webhook after {max_webhook_retry} attempts: {e}")
-                    raise RuntimeError(f"Webhook cleanup failed after {max_webhook_retry} attempts")
-            except Exception as e:
-                logger.critical(f"❌ Fatal error checking/deleting webhook: {e}")
-                raise
-        return False
+        try:
+            temp_bot = Bot(token=config.telegram_token)
+            webhook_info = await temp_bot.get_webhook_info()
+            
+            if webhook_info.url:
+                logger.info(f"⚠️ Found existing webhook: {webhook_info.url}")
+                await temp_bot.delete_webhook(drop_pending_updates=True)
+                logger.info("✅ Deleted webhook - polling mode ready")
+            else:
+                logger.info("✅ No webhook found - polling mode ready")
+            return True
+        except Exception as e:
+            logger.warning(f"Webhook cleanup failed (non-critical): {e}")
+            return True  # Continue anyway
     
     # Run initial webhook cleanup
     if not asyncio.run(cleanup_webhook()):

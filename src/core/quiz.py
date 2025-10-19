@@ -451,29 +451,15 @@ class QuizManager:
                 if not category.strip():
                     raise ValidationError("category must be a non-empty string when provided")
                     
-                # Get questions from database with category filter
-                db_questions = self.db.get_questions_by_category(category)
-                if not db_questions:
+                # Use cached questions filtered by category (PERFORMANCE OPTIMIZATION)
+                filtered_questions = [q for q in self.questions if q.get('category') == category]
+                if not filtered_questions:
                     logger.warning(f"No questions found for category '{category}'")
                     return None
-                
-                # Convert DB questions to the expected format
-                filtered_questions = []
-                for q in db_questions:
-                    filtered_questions.append({
-                        'id': q['id'],
-                        'question': q['question'],
-                        'options': json.loads(q['options']) if isinstance(q['options'], str) else q['options'],
-                        'correct_answer': q['correct_answer'],
-                        'category': q.get('category')
-                    })
-                
-                logger.info(f"Filtered {len(filtered_questions)} questions for category '{category}'")
                 
                 # If no chat_id (0 means no specific chat), return random from filtered
                 if chat_id == 0:
                     selected = random.choice(filtered_questions)
-                    logger.info(f"Selected random question from category '{category}': {selected['question'][:50]}...")
                     return selected
                 
                 # For chat-specific, use filtered questions
@@ -482,7 +468,6 @@ class QuizManager:
                 if not available_filtered:
                     # If all category questions were recently used, reset and use any from category
                     available_filtered = filtered_questions
-                    logger.info(f"Reset recent questions for category '{category}' in chat {chat_id}")
                 
                 selected = random.choice(available_filtered)
                 
@@ -490,72 +475,23 @@ class QuizManager:
                 self.recent_questions[chat_id].append(selected['question'])
                 self.last_question_time[chat_id][selected['question']] = datetime.now()
                 
-                logger.info(f"Selected question from category '{category}' for chat {chat_id}. "
-                           f"Question: {selected['question'][:50]}... "
-                           f"Available in category: {len(available_filtered)}")
                 return selected
 
-            # If no chat_id provided (0 means no specific chat), return completely random from DB
+            # If no chat_id provided (0 means no specific chat), return completely random from cached questions
             if chat_id == 0:
-                # Use database questions (with IDs) for better delquiz support
-                db_questions = self.db.get_all_questions()
-                if db_questions:
-                    selected = random.choice(db_questions)
-                    # Convert options from JSON string if needed
-                    if isinstance(selected['options'], str):
-                        selected['options'] = json.loads(selected['options'])
-                    return selected
-                # Fallback to JSON questions if DB is empty
                 return random.choice(self.questions) if self.questions else None
 
-            # Use database questions (with IDs) for chat-specific selection
-            db_questions = self.db.get_all_questions()
-            if not db_questions:
-                # Fallback to JSON if database is empty
-                if chat_id not in self.available_questions or not self.available_questions[chat_id]:
-                    logger.info(f"Initializing question pool for chat {chat_id}")
-                    self._initialize_available_questions(chat_id)
-                
-                question_index = self.available_questions[chat_id].pop()
-                question = self.questions[question_index]
-                
-                if not self.available_questions[chat_id]:
-                    logger.info(f"Reset question pool for chat {chat_id}")
-                    self._initialize_available_questions(chat_id)
-                
-                logger.info(f"Selected question {question_index} for chat {chat_id}. "
-                           f"Question text: {question['question'][:30]}... "
-                           f"Remaining questions: {len(self.available_questions[chat_id])}")
-                return question
+            # Use cached questions for chat-specific selection (PERFORMANCE OPTIMIZATION)
+            if chat_id not in self.available_questions or not self.available_questions[chat_id]:
+                self._initialize_available_questions(chat_id)
             
-            # Convert DB questions to proper format
-            formatted_questions = []
-            for q in db_questions:
-                formatted_questions.append({
-                    'id': q['id'],
-                    'question': q['question'],
-                    'options': json.loads(q['options']) if isinstance(q['options'], str) else q['options'],
-                    'correct_answer': q['correct_answer']
-                })
+            question_index = self.available_questions[chat_id].pop()
+            question = self.questions[question_index]
             
-            # Filter out recently used questions
-            available_questions = [q for q in formatted_questions if q['question'] not in self.recent_questions.get(chat_id, [])]
+            if not self.available_questions[chat_id]:
+                self._initialize_available_questions(chat_id)
             
-            if not available_questions:
-                # All questions used, reset and use any question
-                available_questions = formatted_questions
-                logger.info(f"Reset recent questions for chat {chat_id}")
-            
-            selected = random.choice(available_questions)
-            
-            # Track this question
-            self.recent_questions[chat_id].append(selected['question'])
-            self.last_question_time[chat_id][selected['question']] = datetime.now()
-            
-            logger.info(f"Selected question {selected.get('id', 'unknown')} for chat {chat_id}. "
-                       f"Question text: {selected['question'][:30]}... "
-                       f"Remaining questions: {len(available_questions) - 1}")
-            return selected
+            return question
 
         except Exception as e:
             logger.error(f"Error in get_random_question: {e}\n{traceback.format_exc()}")

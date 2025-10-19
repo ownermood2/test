@@ -81,12 +81,10 @@ class RateLimiter:
             Tuple of (allowed: bool, wait_seconds: int, limit_type: str)
         """
         if is_developer:
-            logger.debug(f"Developer {user_id} bypasses rate limit for /{command}")
             return True, 0, "developer"
         
         limits = self._get_command_limits(command)
         if not limits:
-            logger.debug(f"No rate limits configured for /{command}, allowing")
             return True, 0, "unlimited"
         
         per_minute, per_hour, limit_type = limits
@@ -103,26 +101,13 @@ class RateLimiter:
             if len(minute_timestamps) >= per_minute:
                 oldest_in_minute = minute_timestamps[0]
                 wait_seconds = int(60 - (current_time - oldest_in_minute)) + 1
-                logger.warning(
-                    f"Rate limit exceeded for user {user_id}, command /{command}: "
-                    f"{len(minute_timestamps)}/{per_minute} per minute"
-                )
                 return False, wait_seconds, f"{limit_type}_minute"
             
             if per_hour > 0 and len(hour_timestamps) >= per_hour:
                 oldest_in_hour = hour_timestamps[0]
                 wait_seconds = int(3600 - (current_time - oldest_in_hour)) + 1
-                logger.warning(
-                    f"Rate limit exceeded for user {user_id}, command /{command}: "
-                    f"{len(hour_timestamps)}/{per_hour} per hour"
-                )
                 return False, wait_seconds, f"{limit_type}_hour"
             
-            logger.debug(
-                f"Rate limit check passed for user {user_id}, /{command}: "
-                f"{len(minute_timestamps)}/{per_minute} per min, "
-                f"{len(hour_timestamps)}/{per_hour if per_hour > 0 else 'unlimited'} per hour"
-            )
             return True, 0, limit_type
     
     def record_command(self, user_id: int, command: str) -> None:

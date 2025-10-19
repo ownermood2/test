@@ -79,6 +79,8 @@ class DatabaseManager:
         self._conn = None
         self._lock = Lock()
         self._executor = None
+        self._connection_pool = []
+        self._max_pool_size = 5
         
         try:
             self._create_persistent_connection()
@@ -648,7 +650,8 @@ class DatabaseManager:
             assert conn is not None
             cursor = self._get_cursor(conn)
             assert cursor is not None
-            cursor.execute('SELECT * FROM questions ORDER BY id')
+            # PERFORMANCE OPTIMIZATION: Only select needed columns
+            cursor.execute('SELECT id, question, options, correct_answer, category FROM questions ORDER BY id')
             rows = cursor.fetchall()
             return [
                 {
