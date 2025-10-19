@@ -1233,7 +1233,7 @@ class TelegramQuizBot:
                     # Test if the saved topic is still open by trying to send a test message
                     test_message = await context.bot.send_message(
                         chat_id=chat_id,
-                        text="🔍 Testing topic...",
+                        text="🔍",
                         message_thread_id=saved_topic['topic_id']
                     )
                     # If successful, delete the test message and return the topic ID
@@ -1247,18 +1247,18 @@ class TelegramQuizBot:
                         # Invalidate the saved topic
                         self.db.invalidate_forum_topic(chat_id, saved_topic['topic_id'])
                     else:
-                        raise
+                        logger.debug(f"Error testing saved topic: {e}")
             
             # Search for open topics by trying different topic IDs
             logger.info(f"🔍 Searching for open topics in forum chat {chat_id}...")
-            topic_ranges = list(range(2, 100)) + list(range(1000, 10000, 10))
+            topic_ranges = list(range(2, 20)) + list(range(1000, 1010, 2))  # Reduced range for faster search
             
             for topic_id in topic_ranges:
                 try:
-                    # Test if topic is open by sending a test message
+                    # Test if topic is open by sending a minimal test message
                     test_message = await context.bot.send_message(
                         chat_id=chat_id,
-                        text="🔍 Testing topic...",
+                        text="🔍",
                         message_thread_id=topic_id
                     )
                     # If successful, delete the test message and save this topic
@@ -1632,15 +1632,18 @@ Need more help? We're here for you! 🌟"""
                 # Handle forum groups with automatic open topic detection
                 message_thread_id = None
                 if hasattr(chat, 'is_forum') and chat.is_forum:
-                    logger.info(f"Detected forum group {chat.id}, searching for open topic...")
+                    logger.info(f"🔍 Detected forum group {chat.id}, searching for open topic...")
                     message_thread_id = await self._find_open_forum_topic(chat.id, context)
                     
                     if message_thread_id is None:
                         # No open topics found, reply with error message
+                        logger.warning(f"❌ No open topics found in forum chat {chat.id}")
                         await loading_message.edit_text("❌ No open topic found to post the quiz.")
                         return
                     else:
-                        logger.info(f"Using open topic {message_thread_id} for /quiz in forum chat {chat.id}")
+                        logger.info(f"✅ Using open topic {message_thread_id} for /quiz in forum chat {chat.id}")
+                else:
+                    logger.info(f"📝 Regular group detected: {chat.id} (type: {chat.type})")
                 
                 await self.send_quiz(update.effective_chat.id, context, chat_type=chat.type, message_thread_id=message_thread_id)
                 await loading_message.delete()
