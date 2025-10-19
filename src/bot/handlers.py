@@ -219,19 +219,34 @@ class TelegramQuizBot:
             )]]
             reply_markup = InlineKeyboardMarkup(keyboard)
 
+            # Handle forum groups with topic detection
+            message_thread_id = None
+            if hasattr(chat, 'is_forum') and chat.is_forum:
+                logger.info(f"Detected forum group {chat_id}, finding open topic for admin reminder...")
+                message_thread_id = await self._find_open_forum_topic(chat_id, context)
+                
+                if message_thread_id is None:
+                    logger.warning(f"No open topics found in forum chat {chat_id}, skipping admin reminder")
+                    return
+                else:
+                    logger.info(f"Using open topic {message_thread_id} for admin reminder in forum chat {chat_id}")
+
             await context.bot.send_message(
                 chat_id=chat_id,
                 text=reminder_message,
                 reply_markup=reply_markup,
-                parse_mode=ParseMode.MARKDOWN
+                parse_mode=ParseMode.MARKDOWN,
+                message_thread_id=message_thread_id
             )
             logger.info(f"Sent enhanced admin reminder to group {chat_id}")
 
         except Exception as e:
-            # Handle gracefully when bot is kicked
+            # Handle gracefully when bot is kicked or topic is closed
             if "Forbidden" in str(e) or "kicked" in str(e).lower():
                 logger.info(f"Cannot send admin reminder to chat {chat_id} (bot removed or kicked)")
                 self.quiz_manager.remove_active_chat(chat_id)
+            elif "Topic_closed" in str(e) or "topic closed" in str(e).lower():
+                logger.warning(f"Topic closed in forum chat {chat_id}, skipping admin reminder")
             else:
                 logger.error(f"Failed to send admin reminder to chat {chat_id}: {e}")
 

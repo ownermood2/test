@@ -12,7 +12,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler('bot.log')
+        logging.FileHandler('bot.log', encoding='utf-8')
     ]
 )
 logger = logging.getLogger(__name__)
@@ -102,18 +102,18 @@ def run_polling_mode(config: Config):
     # Configure bot (add handlers and job queues, but don't start yet)
     async def configure_bot():
         await bot.initialize(config.telegram_token)
-        logger.info("✅ Bot configured successfully")
+            logger.info("Bot configured successfully")
     
     asyncio.run(configure_bot())
     
     # Send restart confirmation
     send_restart_confirmation_sync(config)
     
-    logger.info("✅ Bot is running. Press Ctrl+C to stop.")
+    logger.info("Bot is running. Press Ctrl+C to stop.")
     
     # Ensure application is initialized
     if not bot.application:
-        logger.critical("❌ Bot application not initialized properly")
+        logger.critical("Bot application not initialized properly")
         raise RuntimeError("Bot application not initialized")
     
     # Runtime conflict recovery loop for run_polling()
@@ -135,7 +135,7 @@ def run_polling_mode(config: Config):
             logger.info("Shutdown signal received")
             break
         except Exception as e:
-            logger.critical(f"❌ Fatal error during polling: {e}")
+                logger.critical(f"Fatal error during polling: {e}")
             raise
 
 # Initialize config at module level - NO validation at import time
