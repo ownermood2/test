@@ -401,17 +401,34 @@ class TelegramQuizBot:
                 logger.info(f"Logged quiz_sent activity for chat {chat_id} (auto_sent={auto_sent}, scheduled={scheduled})")
 
         except Exception as e:
-            # Re-raise Topic_closed so outer handler can skip gracefully
-            if "Topic_closed" in str(e):
+            error_msg = str(e).lower()
+            
+            # Handle specific forum-related errors gracefully
+            if "topic_closed" in error_msg or "topic closed" in error_msg:
+                logger.warning(f"⚠️ Topic {message_thread_id} is closed in forum chat {chat_id}")
+                # Invalidate the saved topic so we search for a new one next time
+                if message_thread_id:
+                    self.db.invalidate_forum_topic(chat_id, message_thread_id)
                 raise  # Let the caller handle closed topics
             
-            logger.error(f"Error sending quiz: {str(e)}\n{traceback.format_exc()}")
+            if "message thread not found" in error_msg or "thread not found" in error_msg:
+                logger.warning(f"⚠️ Topic {message_thread_id} not found in forum chat {chat_id}")
+                # Invalidate the saved topic
+                if message_thread_id:
+                    self.db.invalidate_forum_topic(chat_id, message_thread_id)
+                raise  # Let the caller handle missing topics
+            
+            logger.error(f"❌ Error sending quiz to chat {chat_id}: {str(e)}\n{traceback.format_exc()}")
             
             # Try to send error message, but don't fail if topic is closed
             try:
-                await context.bot.send_message(chat_id=chat_id, text="Error sending quiz.")
-            except Exception:
-                pass  # Ignore if we can't send error message (e.g., closed topic)
+                error_kwargs = {'chat_id': chat_id, 'text': "❌ Error sending quiz. Please try again."}
+                if message_thread_id:
+                    error_kwargs['message_thread_id'] = message_thread_id
+                await context.bot.send_message(**error_kwargs)
+            except Exception as send_error:
+                logger.debug(f"Could not send error message: {send_error}")
+                pass  # Ignore if we can't send error message
             
             # Re-raise the exception so caller knows send failed
             raise
@@ -1265,8 +1282,23 @@ class TelegramQuizBot:
                         logger.debug(f"Error testing saved topic: {e}")
             
             # Search for open topics by trying different topic IDs
+            # EXPANDED SEARCH: Try more topic IDs to increase chances of finding an open topic
             logger.info(f"🔍 Searching for open topics in forum chat {chat_id}...")
-            topic_ranges = list(range(2, 20)) + list(range(1000, 1010, 2))  # Reduced range for faster search
+            
+            # Extended search ranges:
+            # 1. Low IDs (2-50): Common for newly created topics
+            # 2. High IDs (1000-10000): For forums with many topics
+            # 3. Even higher IDs (10000-100000 with step 100): For very active forums
+            topic_ranges = (
+                list(range(2, 51)) +                    # 2-50 (48 topics)
+                list(range(100, 200, 2)) +              # 100-200 step 2 (50 topics)
+                list(range(1000, 2000, 10)) +           # 1000-2000 step 10 (100 topics)
+                list(range(2000, 5000, 50)) +           # 2000-5000 step 50 (60 topics)
+                list(range(5000, 10000, 100)) +         # 5000-10000 step 100 (50 topics)
+                list(range(10000, 100000, 1000))        # 10000-100000 step 1000 (90 topics)
+            )
+            
+            logger.info(f"Searching {len(topic_ranges)} potential topic IDs...")
             
             for topic_id in topic_ranges:
                 try:
@@ -1285,11 +1317,16 @@ class TelegramQuizBot:
                     error_msg = str(e).lower()
                     if "message thread not found" in error_msg or "thread not found" in error_msg or "topic_closed" in error_msg or "topic closed" in error_msg:
                         continue  # Try next topic
+                    elif "flood control" in error_msg or "too many requests" in error_msg:
+                        # Rate limited, wait and try again
+                        logger.warning(f"Rate limited while searching topics, waiting 2 seconds...")
+                        await asyncio.sleep(2)
+                        continue
                     else:
                         logger.debug(f"Unexpected error testing topic {topic_id}: {e}")
                         continue
             
-            logger.warning(f"❌ No open topics found in forum chat {chat_id}")
+            logger.warning(f"❌ No open topics found in forum chat {chat_id} after searching {len(topic_ranges)} topic IDs")
             return None
             
         except Exception as e:
@@ -3048,29 +3085,49 @@ Failed to display quizzes. Please try again later.
                     is_forum = hasattr(chat, 'is_forum') and chat.is_forum
                     
                     if is_forum:
-                        # Use the new forum topic detection method
+                        logger.info(f"🔍 Detected forum group {chat_id}, searching for open topic...")
+                        # Use the enhanced forum topic detection method
                         message_thread_id = await self._find_open_forum_topic(chat_id, context)
                         
                         if message_thread_id is None:
-                            # No open topics found, try to create a new one
+                            logger.warning(f"⚠️ No open topics found in forum chat {chat_id}")
+                            # Try to create a new topic as fallback
                             new_topic_id = await self.create_quiz_topic(chat_id, context)
                             if new_topic_id:
                                 await self.send_quiz(chat_id, context, auto_sent=True, scheduled=True, 
                                                    chat_type=chat.type, message_thread_id=new_topic_id)
-                                logger.info(f"✅ Created new topic {new_topic_id} and sent quiz to chat {chat_id}")
+                                logger.info(f"✅ Created new topic {new_topic_id} and sent quiz to forum chat {chat_id}")
                             else:
                                 # Skip this chat if no open topics and can't create new one
-                                logger.warning(f"⚠️ No open topics found in forum chat {chat_id}, skipping automated quiz")
+                                logger.warning(f"❌ Skipping forum chat {chat_id}: No open topics found and cannot create new topic (needs can_manage_topics permission)")
+                                # Send notification to admins in General topic (ID 1) if possible
+                                try:
+                                    await context.bot.send_message(
+                                        chat_id=chat_id,
+                                        text="⚠️ **Quiz Bot Notice**\n\n"
+                                             "I couldn't find any open topics to send automated quizzes.\n\n"
+                                             "**Solutions:**\n"
+                                             "1. Open at least one topic in this forum\n"
+                                             "2. Give me 'Manage Topics' permission to create a quiz topic\n"
+                                             "3. Use /quiz manually in an open topic\n\n"
+                                             "Automated quizzes are paused until this is resolved.",
+                                        parse_mode=ParseMode.MARKDOWN,
+                                        message_thread_id=1  # Try General topic
+                                    )
+                                    logger.info(f"📨 Sent notification to forum chat {chat_id} about missing open topics")
+                                except Exception as notify_error:
+                                    logger.debug(f"Could not send notification to forum chat {chat_id}: {notify_error}")
                                 continue
                         else:
                             # Found open topic, send quiz there
                             await self.send_quiz(chat_id, context, auto_sent=True, scheduled=True, 
                                                chat_type=chat.type, message_thread_id=message_thread_id)
-                            logger.info(f"✅ Sent to open topic {message_thread_id} in chat {chat_id}")
+                            logger.info(f"✅ Sent automated quiz to open topic {message_thread_id} in forum chat {chat_id}")
                     else:
+                        # Regular group (non-forum)
                         await self.send_quiz(chat_id, context, auto_sent=True, scheduled=True, 
                                            chat_type=chat.type, message_thread_id=None)
-                        logger.info(f"✅ Successfully sent automated quiz to chat {chat_id}")
+                        logger.info(f"✅ Successfully sent automated quiz to regular group {chat_id}")
 
                 except Exception as e:
                     logger.error(f"Failed to send automated quiz to chat {chat_id}: {str(e)}\n{traceback.format_exc()}")
